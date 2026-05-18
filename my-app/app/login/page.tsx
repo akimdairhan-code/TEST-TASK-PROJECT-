@@ -26,7 +26,7 @@ export default function LoginPage() {
         : await register(email, password, role);
 
       saveAuth(res.data.token, res.data.role);
-      router.push(res.data.role === "admin" ? "/admin/quizzes" : "/quizzes");
+      router.push(res.data.role === "admin" ? "/hub" : "/quizzes");
     } catch (e: any) {
       setError(e.response?.data?.message || "Ошибка. Проверьте данные.");
     } finally {

@@ -3,8 +3,78 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { adminGetQuiz, adminUpdateQuiz } from "@/lib/api";
 
-interface Answer { text: string; is_correct: boolean; order_index: number; id?: string; }
-interface Question { text: string; order_index: number; answers: Answer[]; id?: string; }
+type QType = "choice" | "text" | "match";
+
+interface AnswerRow {
+  text: string;
+  is_correct: boolean;
+  order_index: number;
+}
+
+interface QuestionForm {
+  text: string;
+  question_type: QType;
+  answers: AnswerRow[];
+  correctText: string;
+  matchRows: { left: string; right: string }[];
+}
+
+const emptyChoiceAnswers = (): AnswerRow[] => [
+  { text: "", is_correct: true, order_index: 0 },
+  { text: "", is_correct: false, order_index: 1 },
+];
+
+const emptyQuestion = (): QuestionForm => ({
+  text: "",
+  question_type: "choice",
+  answers: emptyChoiceAnswers(),
+  correctText: "",
+  matchRows: [{ left: "", right: "" }],
+});
+
+function mapApiQuestionToForm(q: {
+  text: string;
+  order_index: number;
+  question_type?: string;
+  answers: { text?: string; is_correct?: boolean; order_index: number }[];
+}): QuestionForm {
+  const qt = (q.question_type || "choice") as QType;
+  if (qt === "text") {
+    const correct = q.answers.find((a) => a.is_correct === true) ?? q.answers[0];
+    return {
+      text: q.text,
+      question_type: "text",
+      answers: [],
+      correctText: correct?.text ?? "",
+      matchRows: [{ left: "", right: "" }],
+    };
+  }
+  if (qt === "match") {
+    const sorted = [...q.answers].sort((a, b) => a.order_index - b.order_index);
+    const rows: { left: string; right: string }[] = [];
+    for (let i = 0; i + 1 < sorted.length; i += 2) {
+      rows.push({ left: sorted[i].text, right: sorted[i + 1].text });
+    }
+    return {
+      text: q.text,
+      question_type: "match",
+      answers: [],
+      correctText: "",
+      matchRows: rows.length ? rows : [{ left: "", right: "" }],
+    };
+  }
+  return {
+    text: q.text,
+    question_type: "choice",
+    correctText: "",
+    matchRows: [{ left: "", right: "" }],
+    answers: q.answers.map((a, ai) => ({
+      text: a.text ?? "",
+      is_correct: a.is_correct === true,
+      order_index: ai,
+    })),
+  };
+}
 
 export default function EditQuizPage() {
   const router = useRouter();
@@ -16,7 +86,7 @@ export default function EditQuizPage() {
   const [passThreshold, setPassThreshold] = useState(0);
   const [oneAttempt, setOneAttempt] = useState(false);
   const [showAnswers, setShowAnswers] = useState(false);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<QuestionForm[]>([emptyQuestion()]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -34,19 +104,10 @@ export default function EditQuizPage() {
       setPassThreshold(quiz.pass_threshold);
       setOneAttempt(quiz.one_attempt);
       setShowAnswers(quiz.show_answers);
-      setQuestions(
-        quiz.questions.map((q: any) => ({
-          id: q.id,
-          text: q.text,
-          order_index: q.order_index,
-          answers: q.answers.map((a: any) => ({
-            id: a.id,
-            text: a.text,
-            is_correct: a.is_correct,
-            order_index: a.order_index,
-          })),
-        }))
+      const mapped = (quiz.questions as { text: string; order_index: number; question_type?: string; answers: { text: string; is_correct: boolean; order_index: number }[] }[]).map(
+        mapApiQuestionToForm
       );
+      setQuestions(mapped.length ? mapped : [emptyQuestion()]);
     } catch {
       setError("Ошибка загрузки квиза");
     } finally {
@@ -54,65 +115,177 @@ export default function EditQuizPage() {
     }
   };
 
-  const addQuestion = () =>
-    setQuestions([...questions, { text: "", order_index: questions.length, answers: [{ text: "", is_correct: true, order_index: 0 }, { text: "", is_correct: false, order_index: 1 }] }]);
+  const addQuestion = () => setQuestions([...questions, emptyQuestion()]);
+  const removeQuestion = (qi: number) => setQuestions(questions.filter((_, i) => i !== qi));
+  const updateQuestionText = (qi: number, text: string) =>
+    setQuestions(questions.map((q, i) => (i === qi ? { ...q, text } : q)));
 
-  const removeQuestion = (qi: number) =>
-    setQuestions(questions.filter((_, i) => i !== qi));
-
-  const updateQuestion = (qi: number, text: string) =>
-    setQuestions(questions.map((q, i) => i === qi ? { ...q, text } : q));
+  const setQuestionType = (qi: number, t: QType) =>
+    setQuestions(
+      questions.map((q, i) => {
+        if (i !== qi) return q;
+        if (t === "choice") return { ...q, question_type: "choice", answers: emptyChoiceAnswers() };
+        if (t === "text") return { ...q, question_type: "text", answers: [], correctText: "", matchRows: [{ left: "", right: "" }] };
+        return { ...q, question_type: "match", answers: [], correctText: "", matchRows: [{ left: "", right: "" }] };
+      })
+    );
 
   const addAnswer = (qi: number) =>
-    setQuestions(questions.map((q, i) =>
-      i === qi ? { ...q, answers: [...q.answers, { text: "", is_correct: false, order_index: q.answers.length }] } : q
-    ));
+    setQuestions(
+      questions.map((q, i) =>
+        i === qi
+          ? {
+              ...q,
+              answers: [...q.answers, { text: "", is_correct: false, order_index: q.answers.length }],
+            }
+          : q
+      )
+    );
 
   const removeAnswer = (qi: number, ai: number) =>
-    setQuestions(questions.map((q, i) =>
-      i === qi ? { ...q, answers: q.answers.filter((_, j) => j !== ai) } : q
-    ));
+    setQuestions(
+      questions.map((q, i) => (i === qi ? { ...q, answers: q.answers.filter((_, j) => j !== ai) } : q))
+    );
 
   const updateAnswer = (qi: number, ai: number, text: string) =>
-    setQuestions(questions.map((q, i) =>
-      i === qi ? { ...q, answers: q.answers.map((a, j) => j === ai ? { ...a, text } : a) } : q
-    ));
+    setQuestions(
+      questions.map((q, i) =>
+        i === qi ? { ...q, answers: q.answers.map((a, j) => (j === ai ? { ...a, text } : a)) } : q
+      )
+    );
 
   const setCorrect = (qi: number, ai: number) =>
-    setQuestions(questions.map((q, i) =>
-      i === qi ? { ...q, answers: q.answers.map((a, j) => ({ ...a, is_correct: j === ai })) } : q
-    ));
+    setQuestions(
+      questions.map((q, i) =>
+        i === qi ? { ...q, answers: q.answers.map((a, j) => ({ ...a, is_correct: j === ai })) } : q
+      )
+    );
+
+  const updateCorrectText = (qi: number, v: string) =>
+    setQuestions(questions.map((q, i) => (i === qi ? { ...q, correctText: v } : q)));
+
+  const addMatchRow = (qi: number) =>
+    setQuestions(
+      questions.map((q, i) => (i === qi ? { ...q, matchRows: [...q.matchRows, { left: "", right: "" }] } : q))
+    );
+
+  const removeMatchRow = (qi: number, ri: number) =>
+    setQuestions(
+      questions.map((q, i) =>
+        i === qi && q.matchRows.length > 1 ? { ...q, matchRows: q.matchRows.filter((_, j) => j !== ri) } : q
+      )
+    );
+
+  const updateMatchRow = (qi: number, ri: number, field: "left" | "right", v: string) =>
+    setQuestions(
+      questions.map((q, i) =>
+        i === qi
+          ? {
+              ...q,
+              matchRows: q.matchRows.map((row, j) => (j === ri ? { ...row, [field]: v } : row)),
+            }
+          : q
+      )
+    );
+
+  const validate = () => {
+    if (!title.trim()) {
+      setError("Введите название");
+      return false;
+    }
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.text.trim()) {
+        setError(`Заполните текст вопроса ${i + 1}`);
+        return false;
+      }
+      if (q.question_type === "choice") {
+        if (q.answers.length < 2) {
+          setError(`Вопрос ${i + 1}: минимум 2 варианта`);
+          return false;
+        }
+        if (!q.answers.some((a) => a.is_correct === true)) {
+          setError(`Вопрос ${i + 1}: выберите правильный ответ`);
+          return false;
+        }
+        if (q.answers.some((a) => !String(a.text ?? "").trim())) {
+          setError(`Вопрос ${i + 1}: заполните все варианты`);
+          return false;
+        }
+      }
+      if (q.question_type === "text" && !q.correctText.trim()) {
+        setError(`Вопрос ${i + 1}: укажите эталонный ответ`);
+        return false;
+      }
+      if (q.question_type === "match") {
+        if (!q.matchRows.length) {
+          setError(`Вопрос ${i + 1}: добавьте хотя бы одну пару`);
+          return false;
+        }
+        for (let r = 0; r < q.matchRows.length; r++) {
+          if (!q.matchRows[r].left.trim() || !q.matchRows[r].right.trim()) {
+            setError(`Вопрос ${i + 1}: заполните обе колонки в строке ${r + 1}`);
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  };
+
+  const buildApiQuestions = () =>
+    questions.map((q, qi) => {
+      if (q.question_type === "text") {
+        return {
+          text: q.text,
+          order_index: qi,
+          question_type: "text",
+          answers: [
+            { text: q.correctText.trim(), is_correct: true, order_index: 0 },
+            { text: "", is_correct: false, order_index: 1 },
+          ],
+        };
+      }
+      if (q.question_type === "match") {
+        const answers: { text: string; is_correct: boolean; order_index: number }[] = [];
+        q.matchRows.forEach((row, i) => {
+          answers.push({ text: row.left.trim(), is_correct: false, order_index: 2 * i });
+          answers.push({ text: row.right.trim(), is_correct: false, order_index: 2 * i + 1 });
+        });
+        return { text: q.text, order_index: qi, question_type: "match", answers };
+      }
+      return {
+        text: q.text,
+        order_index: qi,
+        question_type: "choice",
+        answers: q.answers.map((a, ai) => ({
+          text: a.text.trim(),
+          is_correct: a.is_correct === true,
+          order_index: ai,
+        })),
+      };
+    });
 
   const handleSave = async () => {
     setError("");
-    if (!title.trim()) { setError("Введите название"); return; }
-    for (let i = 0; i < questions.length; i++) {
-      if (!questions[i].text.trim()) { setError(`Заполните текст вопроса ${i + 1}`); return; }
-      if (questions[i].answers.length < 2) { setError(`Вопрос ${i + 1}: минимум 2 варианта`); return; }
-      if (!questions[i].answers.some((a) => a.is_correct)) { setError(`Вопрос ${i + 1}: выберите правильный ответ`); return; }
-    }
-
+    if (!validate()) return;
     setLoading(true);
     try {
       await adminUpdateQuiz(id, {
-        title,
+        title: title.trim(),
         is_published: isPublished,
         pass_threshold: passThreshold,
         one_attempt: oneAttempt,
         show_answers: showAnswers,
-        questions: questions.map((q, qi) => ({
-          text: q.text,
-          order_index: qi,
-          answers: q.answers.map((a, ai) => ({
-            text: a.text,
-            is_correct: a.is_correct,
-            order_index: ai,
-          })),
-        })),
+        questions: buildApiQuestions(),
       });
       router.push("/admin/quizzes");
-    } catch (e: any) {
-      setError(e.response?.data?.message || "Ошибка сохранения");
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "response" in e
+          ? String((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Ошибка сохранения")
+          : "Ошибка сохранения";
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -123,7 +296,9 @@ export default function EditQuizPage() {
   return (
     <div className="container" style={{ paddingTop: 40, paddingBottom: 60 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32 }}>
-        <button className="btn btn-gray" onClick={() => router.push("/admin/quizzes")}>← Назад</button>
+        <button className="btn btn-gray" onClick={() => router.push("/admin/quizzes")}>
+          ← Назад
+        </button>
         <h1 style={{ fontSize: 24, fontWeight: 700 }}>Редактировать квиз</h1>
       </div>
 
@@ -147,8 +322,15 @@ export default function EditQuizPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <label style={{ whiteSpace: "nowrap" }}>Порог прохождения %:</label>
-            <input className="input" type="number" min={0} max={100} value={passThreshold}
-              onChange={(e) => setPassThreshold(Number(e.target.value))} style={{ width: 100 }} />
+            <input
+              className="input"
+              type="number"
+              min={0}
+              max={100}
+              value={passThreshold}
+              onChange={(e) => setPassThreshold(Number(e.target.value))}
+              style={{ width: 100 }}
+            />
           </div>
         </div>
       </div>
@@ -158,22 +340,85 @@ export default function EditQuizPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ fontWeight: 600 }}>Вопрос {qi + 1}</h3>
             {questions.length > 1 && (
-              <button className="btn btn-danger" style={{ padding: "6px 12px" }} onClick={() => removeQuestion(qi)}>✕</button>
+              <button className="btn btn-danger" style={{ padding: "6px 12px" }} onClick={() => removeQuestion(qi)}>
+                ✕
+              </button>
             )}
           </div>
-          <input className="input" placeholder="Текст вопроса *" value={q.text}
-            onChange={(e) => updateQuestion(qi, e.target.value)} style={{ marginBottom: 12 }} />
-          {q.answers.map((a, ai) => (
-            <div key={ai} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <input type="radio" name={`correct-${qi}`} checked={a.is_correct} onChange={() => setCorrect(qi, ai)} />
-              <input className="input" placeholder={`Вариант ${ai + 1}`} value={a.text}
-                onChange={(e) => updateAnswer(qi, ai, e.target.value)} />
-              {q.answers.length > 2 && (
-                <button className="btn btn-danger" style={{ padding: "6px 10px" }} onClick={() => removeAnswer(qi, ai)}>✕</button>
-              )}
+
+          <label style={{ display: "block", fontSize: 13, color: "#64748b", marginBottom: 6 }}>Тип вопроса</label>
+          <select
+            className="input"
+            value={q.question_type}
+            onChange={(e) => setQuestionType(qi, e.target.value as QType)}
+            style={{ marginBottom: 12, maxWidth: 280 }}
+          >
+            <option value="choice">Выбор из вариантов</option>
+            <option value="text">Свободный ввод</option>
+            <option value="match">Сопоставление</option>
+          </select>
+
+          <input
+            className="input"
+            placeholder="Текст вопроса *"
+            value={q.text}
+            onChange={(e) => updateQuestionText(qi, e.target.value)}
+            style={{ marginBottom: 12 }}
+          />
+
+          {q.question_type === "choice" && (
+            <>
+              {q.answers.map((a, ai) => (
+                <div key={ai} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <input type="radio" name={`correct-${qi}`} checked={a.is_correct === true} onChange={() => setCorrect(qi, ai)} />
+                  <input className="input" placeholder={`Вариант ${ai + 1}`} value={a.text ?? ""} onChange={(e) => updateAnswer(qi, ai, e.target.value)} />
+                  {q.answers.length > 2 && (
+                    <button className="btn btn-danger" style={{ padding: "6px 10px" }} onClick={() => removeAnswer(qi, ai)}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button className="btn btn-gray" style={{ marginTop: 8 }} onClick={() => addAnswer(qi)}>
+                + Вариант
+              </button>
+            </>
+          )}
+
+          {q.question_type === "text" && (
+            <div>
+              <label style={{ fontSize: 14, color: "#555" }}>Эталонный ответ</label>
+              <input
+                className="input"
+                value={q.correctText}
+                onChange={(e) => updateCorrectText(qi, e.target.value)}
+                style={{ marginTop: 6 }}
+              />
             </div>
-          ))}
-          <button className="btn btn-gray" style={{ marginTop: 8 }} onClick={() => addAnswer(qi)}>+ Добавить вариант</button>
+          )}
+
+          {q.question_type === "match" && (
+            <div>
+              <p style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>
+                Пары «слева» и «верно справа»; при прохождении для каждой строки слева выбирается значение из списка всех правых ответов.
+              </p>
+              {q.matchRows.map((row, ri) => (
+                <div key={ri} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                  <input className="input" placeholder="Слева" value={row.left} onChange={(e) => updateMatchRow(qi, ri, "left", e.target.value)} />
+                  <span style={{ color: "#94a3b8" }}>→</span>
+                  <input className="input" placeholder="Справа" value={row.right} onChange={(e) => updateMatchRow(qi, ri, "right", e.target.value)} />
+                  {q.matchRows.length > 1 && (
+                    <button className="btn btn-danger" style={{ padding: "6px 10px" }} onClick={() => removeMatchRow(qi, ri)}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button className="btn btn-gray" style={{ marginTop: 4 }} onClick={() => addMatchRow(qi)}>
+                + Строка
+              </button>
+            </div>
+          )}
         </div>
       ))}
 

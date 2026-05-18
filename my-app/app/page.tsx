@@ -9,11 +9,15 @@ export default function Home() {
   useEffect(() => {
     if (!isLoggedIn()) {
       router.push("/login");
-    } else {
-      const role = getRole();
-      router.push(role === "admin" ? "/admin/quizzes" : "/quizzes");
+      return;
     }
-  }, []);
+    const role = getRole();
+    if (role === "admin") {
+      router.replace("/hub");
+    } else {
+      router.replace("/quizzes");
+    }
+  }, [router]);
 
   return <div style={{ padding: 40 }}>Загрузка...</div>;
 }

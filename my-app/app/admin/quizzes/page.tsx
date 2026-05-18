@@ -66,10 +66,15 @@ export default function AdminQuizzesPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700 }}>Мои квизы</h1>
         <div style={{ display: "flex", gap: 12 }}>
+          <button className="btn btn-gray" onClick={() => router.push("/hub")}>
+            Главное меню
+          </button>
           <button className="btn btn-primary" onClick={() => router.push("/admin/quizzes/new")}>
             + Создать квиз
           </button>
-          <button className="btn btn-gray" onClick={handleLogout}>Выйти</button>
+          <button className="btn btn-gray" onClick={handleLogout}>
+            Выйти
+          </button>
         </div>
       </div>
 
@@ -96,7 +101,12 @@ export default function AdminQuizzesPage() {
                 </span>
               </p>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {quiz.is_published && (
+                <button className="btn btn-success" onClick={() => router.push(`/quizzes/${quiz.id}`)}>
+                  Пройти тест
+                </button>
+              )}
               <button
                 className="btn btn-gray"
                 onClick={() => router.push(`/admin/quizzes/${quiz.id}/edit`)}

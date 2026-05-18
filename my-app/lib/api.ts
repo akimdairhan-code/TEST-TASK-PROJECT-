@@ -2,14 +2,24 @@ import axios from "axios";
 
 const BASE_URL = "http://127.0.0.1:4000";
 
-// Создаём axios с токеном
 const api = axios.create({ baseURL: BASE_URL });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
+
+export type MatchPair = { left_answer_id: string; right_answer_id: string };
+
+export type SubmitAnswerPayload = {
+  question_id: string;
+  answer_id?: string;
+  text_answer?: string;
+  match_pairs?: MatchPair[];
+};
 
 // ===== AUTH =====
 export const register = (email: string, password: string, role: string) =>
@@ -21,8 +31,8 @@ export const login = (email: string, password: string) =>
 // ===== ADMIN =====
 export const adminGetQuizzes = () => api.get("/admin/quizzes");
 export const adminGetQuiz = (id: string) => api.get(`/admin/quizzes/${id}`);
-export const adminCreateQuiz = (data: any) => api.post("/admin/quizzes", data);
-export const adminUpdateQuiz = (id: string, data: any) => api.put(`/admin/quizzes/${id}`, data);
+export const adminCreateQuiz = (data: unknown) => api.post("/admin/quizzes", data);
+export const adminUpdateQuiz = (id: string, data: unknown) => api.put(`/admin/quizzes/${id}`, data);
 export const adminDeleteQuiz = (id: string) => api.delete(`/admin/quizzes/${id}`);
 export const adminPublishQuiz = (id: string, isPublished: boolean) =>
   api.patch(`/admin/quizzes/${id}/publish`, { is_published: isPublished });
@@ -30,5 +40,6 @@ export const adminPublishQuiz = (id: string, isPublished: boolean) =>
 // ===== USER =====
 export const getQuizzes = () => api.get("/quizzes");
 export const getQuiz = (id: string) => api.get(`/quizzes/${id}`);
-export const submitQuiz = (id: string, answers: { question_id: string; answer_id: string }[]) =>
+export const getQuizResult = (id: string) => api.get(`/quizzes/${id}/result`);
+export const submitQuiz = (id: string, answers: SubmitAnswerPayload[]) =>
   api.post(`/quizzes/${id}/submit`, { answers });
