@@ -3,37 +3,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getQuizzes } from "@/lib/api";
 import { getRole, logout } from "@/lib/auth";
-
-interface Quiz {
-  id: string;
-  title: string;
-  question_count: number;
-  one_attempt: boolean;
-  status: string;
-  score: number;
-  percent: number;
-  passed: boolean;
-}
-
-function draftKey(quizId: string) {
-  return `quiz_draft_${quizId}`;
-}
-
-function hasLocalDraft(quizId: string) {
-  if (typeof window === "undefined") return false;
-  try {
-    const raw = localStorage.getItem(draftKey(quizId));
-    if (!raw) return false;
-    const d = JSON.parse(raw) as { current?: number };
-    return typeof d.current === "number";
-  } catch {
-    return false;
-  }
-}
+import {
+  type QuizListItem,
+  clearDraftIfCompleted,
+  getStatusLabel,
+  handleQuizNavigate,
+} from "@/lib/quizStatus";
 
 export default function QuizzesPage() {
   const router = useRouter();
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizzes, setQuizzes] = useState<QuizListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -44,17 +23,9 @@ export default function QuizzesPage() {
   const loadQuizzes = async () => {
     try {
       const res = await getQuizzes();
-      const list = res.data.quizzes as Quiz[];
+      const list = res.data.quizzes as QuizListItem[];
+      list.forEach(clearDraftIfCompleted);
       setQuizzes(list);
-      for (const q of list) {
-        if (q.status === "completed" && hasLocalDraft(q.id)) {
-          try {
-            localStorage.removeItem(draftKey(q.id));
-          } catch {
-            /* ignore */
-          }
-        }
-      }
     } catch {
       setError("Ошибка загрузки");
     } finally {
@@ -62,31 +33,16 @@ export default function QuizzesPage() {
     }
   };
 
-  const getStatusLabel = (quiz: Quiz) => {
-    if (quiz.status === "completed") {
-      return quiz.passed
-        ? { label: "✓ Завершён (пройден)", color: "#16a34a", bg: "#dcfce7" }
-        : { label: "✓ Завершён (не пройден)", color: "#dc2626", bg: "#fee2e2" };
-    }
-    if (hasLocalDraft(quiz.id)) {
-      return { label: "▶ Продолжить", color: "#ca8a04", bg: "#fef9c3" };
-    }
-    return { label: "Пройти →", color: "#6366f1", bg: "#eef2ff" };
-  };
-
-  const handleQuizClick = (quiz: Quiz) => {
-    if (quiz.status === "completed" && quiz.one_attempt) {
-      router.push(`/quizzes/${quiz.id}/result`);
-      return;
-    }
-    router.push(`/quizzes/${quiz.id}`);
-  };
-
   return (
     <div className="container" style={{ paddingTop: 40 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700 }}>Доступные квизы</h1>
         <div style={{ display: "flex", gap: 8 }}>
+          {getRole() === "admin" && (
+            <button className="btn btn-gray" onClick={() => router.push("/hub")}>
+              Главное меню
+            </button>
+          )}
           {getRole() === "admin" && (
             <button className="btn btn-gray" onClick={() => router.push("/admin/quizzes")}>
               Админка
@@ -120,27 +76,40 @@ export default function QuizzesPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {quizzes.map((quiz) => {
           const statusInfo = getStatusLabel(quiz);
+          const canRetake = quiz.status === "completed" && !quiz.one_attempt;
           return (
             <div
               key={quiz.id}
               className="card"
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 12,
+              }}
             >
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 600 }}>{quiz.title}</h3>
                 <p style={{ color: "#888", marginTop: 4, fontSize: 14 }}>
                   {quiz.question_count} вопросов
+                  {getRole() === "admin" && quiz.is_published === false && (
+                    <span style={{ marginLeft: 8, color: "#f59e0b", fontWeight: 600 }}>· черновик</span>
+                  )}
                   {quiz.status === "completed" && (
                     <span style={{ marginLeft: 12, fontWeight: 600 }}>
-                      {quiz.score} / {quiz.percent}%
+                      {quiz.percent}% ({quiz.score}/{quiz.question_count})
                     </span>
                   )}
-                  {quiz.one_attempt && <span style={{ marginLeft: 8, color: "#64748b" }}>· одна попытка</span>}
+                  {quiz.one_attempt && (
+                    <span style={{ marginLeft: 8, color: "#64748b" }}>· одна попытка</span>
+                  )}
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button
-                  onClick={() => handleQuizClick(quiz)}
+                  type="button"
+                  onClick={() => handleQuizNavigate(quiz, router)}
                   style={{
                     padding: "10px 20px",
                     borderRadius: 8,
@@ -156,11 +125,19 @@ export default function QuizzesPage() {
                 </button>
                 {quiz.status === "completed" && (
                   <>
-                    <button className="btn btn-gray" onClick={() => router.push(`/quizzes/${quiz.id}/result`)}>
+                    <button
+                      type="button"
+                      className="btn btn-gray"
+                      onClick={() => router.push(`/quizzes/${quiz.id}/result`)}
+                    >
                       Результат
                     </button>
-                    {!quiz.one_attempt && (
-                      <button className="btn btn-primary" onClick={() => router.push(`/quizzes/${quiz.id}`)}>
+                    {canRetake && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => router.push(`/quizzes/${quiz.id}`)}
+                      >
                         Снова
                       </button>
                     )}

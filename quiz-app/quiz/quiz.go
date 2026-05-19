@@ -223,20 +223,10 @@ func AdminListQuizzes(ctx context.Context) (*QuizListResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	var result []QuizListItem
-	for _, q := range quizzes {
-		result = append(result, QuizListItem{
-			ID:            q.ID.String(),
-			Title:         q.Title,
-			IsPublished:   q.IsPublished,
-			PassThreshold: q.PassThreshold,
-			OneAttempt:    q.OneAttempt,
-			ShowAnswers:   q.ShowAnswers,
-			QuestionCount: len(q.Edges.Questions),
-		})
-	}
-	if result == nil {
-		result = []QuizListItem{}
+	userUID, _ := uuid.Parse(ud.UserID)
+	result, err := buildQuizListItems(ctx, quizzes, userUID)
+	if err != nil {
+		return nil, err
 	}
 	return &QuizListResponse{Quizzes: result}, nil
 }
@@ -259,13 +249,16 @@ func AdminCreateQuiz(ctx context.Context, req *CreateQuizRequest) (*QuizResponse
 		return nil, errors.New("минимум 1 вопрос")
 	}
 	client := entClient
-	q, err := client.Quiz.Create().
+	create := client.Quiz.Create().
 		SetTitle(req.Title).
 		SetIsPublished(req.IsPublished).
 		SetPassThreshold(req.PassThreshold).
 		SetOneAttempt(req.OneAttempt).
-		SetShowAnswers(req.ShowAnswers).
-		Save(ctx)
+		SetShowAnswers(req.ShowAnswers)
+	if userUID, err := uuid.Parse(ud.UserID); err == nil {
+		create = create.SetCreatedByID(userUID)
+	}
+	q, err := create.Save(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -478,14 +471,24 @@ func ListQuizzes(ctx context.Context) (*QuizListResponse, error) {
 	}
 	ud := auth.Data().(*UserData)
 	client := entClient
-	quizzes, err := client.Quiz.Query().
-		Where(entquiz.IsPublished(true)).
-		WithQuestions().
-		All(ctx)
+	query := client.Quiz.Query().WithQuestions()
+	if ud.Role != "admin" {
+		query = query.Where(entquiz.IsPublished(true))
+	}
+	quizzes, err := query.All(ctx)
 	if err != nil {
 		return nil, err
 	}
 	userUID, _ := uuid.Parse(ud.UserID)
+	result, err := buildQuizListItems(ctx, quizzes, userUID)
+	if err != nil {
+		return nil, err
+	}
+	return &QuizListResponse{Quizzes: result}, nil
+}
+
+func buildQuizListItems(ctx context.Context, quizzes []*ent.Quiz, userUID uuid.UUID) ([]QuizListItem, error) {
+	client := entClient
 	var result []QuizListItem
 	for _, q := range quizzes {
 		item := QuizListItem{
@@ -498,31 +501,33 @@ func ListQuizzes(ctx context.Context) (*QuizListResponse, error) {
 			QuestionCount: len(q.Edges.Questions),
 			Status:        "not_started",
 		}
-		attempt, err := client.Attempt.Query().
-			Where(func(s *sql.Selector) {
-				s.Where(sql.And(
-					sql.EQ("quiz_id", q.ID),
-					sql.EQ("user_id", userUID),
-				))
-			}).
-			Order(ent.Desc(entattempt.FieldCreatedAt)).
-			First(ctx)
-		if err == nil && attempt != nil {
-			percent := 0
-			if attempt.Total > 0 {
-				percent = (attempt.Score * 100) / attempt.Total
+		if userUID != uuid.Nil {
+			attempt, err := client.Attempt.Query().
+				Where(func(s *sql.Selector) {
+					s.Where(sql.And(
+						sql.EQ("quiz_id", q.ID),
+						sql.EQ("user_id", userUID),
+					))
+				}).
+				Order(ent.Desc(entattempt.FieldCreatedAt)).
+				First(ctx)
+			if err == nil && attempt != nil {
+				percent := 0
+				if attempt.Total > 0 {
+					percent = (attempt.Score * 100) / attempt.Total
+				}
+				item.Score = attempt.Score
+				item.Percent = percent
+				item.Passed = percent >= q.PassThreshold
+				item.Status = "completed"
 			}
-			item.Score = attempt.Score
-			item.Percent = percent
-			item.Passed = percent >= q.PassThreshold
-			item.Status = "completed"
 		}
 		result = append(result, item)
 	}
 	if result == nil {
 		result = []QuizListItem{}
 	}
-	return &QuizListResponse{Quizzes: result}, nil
+	return result, nil
 }
 
 // ===== USER + ADMIN: получить квиз (для прохождения) =====

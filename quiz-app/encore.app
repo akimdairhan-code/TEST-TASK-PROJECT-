@@ -1,3 +1,1 @@
-{
-	"id": "quiz-app-43t2"
-}
+{"id": "quiz-app-43t2"}
