@@ -28,13 +28,16 @@ func (Quiz) Fields() []ent.Field {
 		field.Bool("one_attempt").Default(false),
 		field.Bool("show_answers").Default(false),
 		field.Time("created_at").Optional(),
+			field.UUID("created_by_id", uuid.UUID{}).Optional(),
 	}
 }
 
 func (Quiz) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.From("created_by", User.Type).Ref("quizzes").Unique(),
+		edge.From("created_by", User.Type).Ref("quizzes").Unique().Field("created_by_id"),
 		edge.To("questions", Question.Type),
 		edge.To("attempts", Attempt.Type),
 	}
 }
+
+

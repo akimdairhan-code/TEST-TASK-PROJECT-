@@ -86,6 +86,11 @@ func CreatedAt(v time.Time) predicate.Quiz {
 	return predicate.Quiz(sql.FieldEQ(FieldCreatedAt, v))
 }
 
+// CreatedByID applies equality check predicate on the "created_by_id" field. It's identical to CreatedByIDEQ.
+func CreatedByID(v uuid.UUID) predicate.Quiz {
+	return predicate.Quiz(sql.FieldEQ(FieldCreatedByID, v))
+}
+
 // TitleEQ applies the EQ predicate on the "title" field.
 func TitleEQ(v string) predicate.Quiz {
 	return predicate.Quiz(sql.FieldEQ(FieldTitle, v))
@@ -269,6 +274,36 @@ func CreatedAtIsNil() predicate.Quiz {
 // CreatedAtNotNil applies the NotNil predicate on the "created_at" field.
 func CreatedAtNotNil() predicate.Quiz {
 	return predicate.Quiz(sql.FieldNotNull(FieldCreatedAt))
+}
+
+// CreatedByIDEQ applies the EQ predicate on the "created_by_id" field.
+func CreatedByIDEQ(v uuid.UUID) predicate.Quiz {
+	return predicate.Quiz(sql.FieldEQ(FieldCreatedByID, v))
+}
+
+// CreatedByIDNEQ applies the NEQ predicate on the "created_by_id" field.
+func CreatedByIDNEQ(v uuid.UUID) predicate.Quiz {
+	return predicate.Quiz(sql.FieldNEQ(FieldCreatedByID, v))
+}
+
+// CreatedByIDIn applies the In predicate on the "created_by_id" field.
+func CreatedByIDIn(vs ...uuid.UUID) predicate.Quiz {
+	return predicate.Quiz(sql.FieldIn(FieldCreatedByID, vs...))
+}
+
+// CreatedByIDNotIn applies the NotIn predicate on the "created_by_id" field.
+func CreatedByIDNotIn(vs ...uuid.UUID) predicate.Quiz {
+	return predicate.Quiz(sql.FieldNotIn(FieldCreatedByID, vs...))
+}
+
+// CreatedByIDIsNil applies the IsNil predicate on the "created_by_id" field.
+func CreatedByIDIsNil() predicate.Quiz {
+	return predicate.Quiz(sql.FieldIsNull(FieldCreatedByID))
+}
+
+// CreatedByIDNotNil applies the NotNil predicate on the "created_by_id" field.
+func CreatedByIDNotNil() predicate.Quiz {
+	return predicate.Quiz(sql.FieldNotNull(FieldCreatedByID))
 }
 
 // HasCreatedBy applies the HasEdge predicate on the "created_by" edge.

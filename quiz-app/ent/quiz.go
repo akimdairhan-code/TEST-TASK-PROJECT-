@@ -31,10 +31,11 @@ type Quiz struct {
 	ShowAnswers bool `json:"show_answers,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
+	// CreatedByID holds the value of the "created_by_id" field.
+	CreatedByID uuid.UUID `json:"created_by_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the QuizQuery when eager-loading is set.
 	Edges        QuizEdges `json:"edges"`
-	user_quizzes *uuid.UUID
 	selectValues sql.SelectValues
 }
 
@@ -93,10 +94,8 @@ func (*Quiz) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case quiz.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
-		case quiz.FieldID:
+		case quiz.FieldID, quiz.FieldCreatedByID:
 			values[i] = new(uuid.UUID)
-		case quiz.ForeignKeys[0]: // user_quizzes
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -154,12 +153,11 @@ func (_m *Quiz) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CreatedAt = value.Time
 			}
-		case quiz.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field user_quizzes", values[i])
-			} else if value.Valid {
-				_m.user_quizzes = new(uuid.UUID)
-				*_m.user_quizzes = *value.S.(*uuid.UUID)
+		case quiz.FieldCreatedByID:
+			if value, ok := values[i].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field created_by_id", values[i])
+			} else if value != nil {
+				_m.CreatedByID = *value
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -229,6 +227,9 @@ func (_m *Quiz) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("created_by_id=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CreatedByID))
 	builder.WriteByte(')')
 	return builder.String()
 }

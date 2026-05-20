@@ -3426,27 +3426,64 @@ func (m *QuizMutation) ResetCreatedAt() {
 	delete(m.clearedFields, quiz.FieldCreatedAt)
 }
 
-// SetCreatedByID sets the "created_by" edge to the User entity by id.
-func (m *QuizMutation) SetCreatedByID(id uuid.UUID) {
-	m.created_by = &id
+// SetCreatedByID sets the "created_by_id" field.
+func (m *QuizMutation) SetCreatedByID(u uuid.UUID) {
+	m.created_by = &u
+}
+
+// CreatedByID returns the value of the "created_by_id" field in the mutation.
+func (m *QuizMutation) CreatedByID() (r uuid.UUID, exists bool) {
+	v := m.created_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedByID returns the old "created_by_id" field's value of the Quiz entity.
+// If the Quiz object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *QuizMutation) OldCreatedByID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedByID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedByID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedByID: %w", err)
+	}
+	return oldValue.CreatedByID, nil
+}
+
+// ClearCreatedByID clears the value of the "created_by_id" field.
+func (m *QuizMutation) ClearCreatedByID() {
+	m.created_by = nil
+	m.clearedFields[quiz.FieldCreatedByID] = struct{}{}
+}
+
+// CreatedByIDCleared returns if the "created_by_id" field was cleared in this mutation.
+func (m *QuizMutation) CreatedByIDCleared() bool {
+	_, ok := m.clearedFields[quiz.FieldCreatedByID]
+	return ok
+}
+
+// ResetCreatedByID resets all changes to the "created_by_id" field.
+func (m *QuizMutation) ResetCreatedByID() {
+	m.created_by = nil
+	delete(m.clearedFields, quiz.FieldCreatedByID)
 }
 
 // ClearCreatedBy clears the "created_by" edge to the User entity.
 func (m *QuizMutation) ClearCreatedBy() {
 	m.clearedcreated_by = true
+	m.clearedFields[quiz.FieldCreatedByID] = struct{}{}
 }
 
 // CreatedByCleared reports if the "created_by" edge to the User entity was cleared.
 func (m *QuizMutation) CreatedByCleared() bool {
-	return m.clearedcreated_by
-}
-
-// CreatedByID returns the "created_by" edge ID in the mutation.
-func (m *QuizMutation) CreatedByID() (id uuid.UUID, exists bool) {
-	if m.created_by != nil {
-		return *m.created_by, true
-	}
-	return
+	return m.CreatedByIDCleared() || m.clearedcreated_by
 }
 
 // CreatedByIDs returns the "created_by" edge IDs in the mutation.
@@ -3607,7 +3644,7 @@ func (m *QuizMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *QuizMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if m.title != nil {
 		fields = append(fields, quiz.FieldTitle)
 	}
@@ -3625,6 +3662,9 @@ func (m *QuizMutation) Fields() []string {
 	}
 	if m.created_at != nil {
 		fields = append(fields, quiz.FieldCreatedAt)
+	}
+	if m.created_by != nil {
+		fields = append(fields, quiz.FieldCreatedByID)
 	}
 	return fields
 }
@@ -3646,6 +3686,8 @@ func (m *QuizMutation) Field(name string) (ent.Value, bool) {
 		return m.ShowAnswers()
 	case quiz.FieldCreatedAt:
 		return m.CreatedAt()
+	case quiz.FieldCreatedByID:
+		return m.CreatedByID()
 	}
 	return nil, false
 }
@@ -3667,6 +3709,8 @@ func (m *QuizMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldShowAnswers(ctx)
 	case quiz.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
+	case quiz.FieldCreatedByID:
+		return m.OldCreatedByID(ctx)
 	}
 	return nil, fmt.Errorf("unknown Quiz field %s", name)
 }
@@ -3718,6 +3762,13 @@ func (m *QuizMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCreatedAt(v)
 		return nil
+	case quiz.FieldCreatedByID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedByID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Quiz field %s", name)
 }
@@ -3766,6 +3817,9 @@ func (m *QuizMutation) ClearedFields() []string {
 	if m.FieldCleared(quiz.FieldCreatedAt) {
 		fields = append(fields, quiz.FieldCreatedAt)
 	}
+	if m.FieldCleared(quiz.FieldCreatedByID) {
+		fields = append(fields, quiz.FieldCreatedByID)
+	}
 	return fields
 }
 
@@ -3782,6 +3836,9 @@ func (m *QuizMutation) ClearField(name string) error {
 	switch name {
 	case quiz.FieldCreatedAt:
 		m.ClearCreatedAt()
+		return nil
+	case quiz.FieldCreatedByID:
+		m.ClearCreatedByID()
 		return nil
 	}
 	return fmt.Errorf("unknown Quiz nullable field %s", name)
@@ -3808,6 +3865,9 @@ func (m *QuizMutation) ResetField(name string) error {
 		return nil
 	case quiz.FieldCreatedAt:
 		m.ResetCreatedAt()
+		return nil
+	case quiz.FieldCreatedByID:
+		m.ResetCreatedByID()
 		return nil
 	}
 	return fmt.Errorf("unknown Quiz field %s", name)

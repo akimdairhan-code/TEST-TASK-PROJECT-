@@ -129,17 +129,23 @@ func (_u *QuizUpdate) ClearCreatedAt() *QuizUpdate {
 	return _u
 }
 
-// SetCreatedByID sets the "created_by" edge to the User entity by ID.
-func (_u *QuizUpdate) SetCreatedByID(id uuid.UUID) *QuizUpdate {
-	_u.mutation.SetCreatedByID(id)
+// SetCreatedByID sets the "created_by_id" field.
+func (_u *QuizUpdate) SetCreatedByID(v uuid.UUID) *QuizUpdate {
+	_u.mutation.SetCreatedByID(v)
 	return _u
 }
 
-// SetNillableCreatedByID sets the "created_by" edge to the User entity by ID if the given value is not nil.
-func (_u *QuizUpdate) SetNillableCreatedByID(id *uuid.UUID) *QuizUpdate {
-	if id != nil {
-		_u = _u.SetCreatedByID(*id)
+// SetNillableCreatedByID sets the "created_by_id" field if the given value is not nil.
+func (_u *QuizUpdate) SetNillableCreatedByID(v *uuid.UUID) *QuizUpdate {
+	if v != nil {
+		_u.SetCreatedByID(*v)
 	}
+	return _u
+}
+
+// ClearCreatedByID clears the value of the "created_by_id" field.
+func (_u *QuizUpdate) ClearCreatedByID() *QuizUpdate {
+	_u.mutation.ClearCreatedByID()
 	return _u
 }
 
@@ -527,17 +533,23 @@ func (_u *QuizUpdateOne) ClearCreatedAt() *QuizUpdateOne {
 	return _u
 }
 
-// SetCreatedByID sets the "created_by" edge to the User entity by ID.
-func (_u *QuizUpdateOne) SetCreatedByID(id uuid.UUID) *QuizUpdateOne {
-	_u.mutation.SetCreatedByID(id)
+// SetCreatedByID sets the "created_by_id" field.
+func (_u *QuizUpdateOne) SetCreatedByID(v uuid.UUID) *QuizUpdateOne {
+	_u.mutation.SetCreatedByID(v)
 	return _u
 }
 
-// SetNillableCreatedByID sets the "created_by" edge to the User entity by ID if the given value is not nil.
-func (_u *QuizUpdateOne) SetNillableCreatedByID(id *uuid.UUID) *QuizUpdateOne {
-	if id != nil {
-		_u = _u.SetCreatedByID(*id)
+// SetNillableCreatedByID sets the "created_by_id" field if the given value is not nil.
+func (_u *QuizUpdateOne) SetNillableCreatedByID(v *uuid.UUID) *QuizUpdateOne {
+	if v != nil {
+		_u.SetCreatedByID(*v)
 	}
+	return _u
+}
+
+// ClearCreatedByID clears the value of the "created_by_id" field.
+func (_u *QuizUpdateOne) ClearCreatedByID() *QuizUpdateOne {
+	_u.mutation.ClearCreatedByID()
 	return _u
 }
 

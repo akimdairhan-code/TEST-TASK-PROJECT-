@@ -25,6 +25,8 @@ const (
 	FieldShowAnswers = "show_answers"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
+	// FieldCreatedByID holds the string denoting the created_by_id field in the database.
+	FieldCreatedByID = "created_by_id"
 	// EdgeCreatedBy holds the string denoting the created_by edge name in mutations.
 	EdgeCreatedBy = "created_by"
 	// EdgeQuestions holds the string denoting the questions edge name in mutations.
@@ -39,7 +41,7 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "user" package.
 	CreatedByInverseTable = "users"
 	// CreatedByColumn is the table column denoting the created_by relation/edge.
-	CreatedByColumn = "user_quizzes"
+	CreatedByColumn = "created_by_id"
 	// QuestionsTable is the table that holds the questions relation/edge.
 	QuestionsTable = "questions"
 	// QuestionsInverseTable is the table name for the Question entity.
@@ -65,23 +67,13 @@ var Columns = []string{
 	FieldOneAttempt,
 	FieldShowAnswers,
 	FieldCreatedAt,
-}
-
-// ForeignKeys holds the SQL foreign-keys that are owned by the "quizzes"
-// table and are not defined as standalone fields in the schema.
-var ForeignKeys = []string{
-	"user_quizzes",
+	FieldCreatedByID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
-			return true
-		}
-	}
-	for i := range ForeignKeys {
-		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -137,6 +129,11 @@ func ByShowAnswers(opts ...sql.OrderTermOption) OrderOption {
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByCreatedByID orders the results by the created_by_id field.
+func ByCreatedByID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCreatedByID, opts...).ToFunc()
 }
 
 // ByCreatedByField orders the results by created_by field.

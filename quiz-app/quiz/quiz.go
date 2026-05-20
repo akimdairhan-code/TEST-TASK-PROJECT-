@@ -1,4 +1,4 @@
-package quiz
+﻿package quiz
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"encore.app/ent"
 	entattempt "encore.app/ent/attempt"
 	entattemptanswer "encore.app/ent/attemptanswer"
+	entanswer "encore.app/ent/answer"
 	entquestion "encore.app/ent/question"
 	entquiz "encore.app/ent/quiz"
 	"encore.dev/beta/auth"
@@ -59,28 +60,28 @@ END $$;`); err != nil {
 	_, _ = db.ExecContext(ctx, `ALTER TABLE attempt_answers ADD COLUMN IF NOT EXISTS user_text TEXT`)
 }
 
-// lazyEnsureSchema проверяет схему. DDL выполняется только Encore-миграциями (auth/migrations/*.up.sql для БД «quiz»), не из кода —
-// роль приложения часто не владелец таблиц (SQLSTATE 42501).
+// lazyEnsureSchema РїСЂРѕРІРµСЂСЏРµС‚ СЃС…РµРјСѓ. DDL РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ С‚РѕР»СЊРєРѕ Encore-РјРёРіСЂР°С†РёСЏРјРё (auth/migrations/*.up.sql РґР»СЏ Р‘Р” В«quizВ»), РЅРµ РёР· РєРѕРґР° вЂ”
+// СЂРѕР»СЊ РїСЂРёР»РѕР¶РµРЅРёСЏ С‡Р°СЃС‚Рѕ РЅРµ РІР»Р°РґРµР»РµС† С‚Р°Р±Р»РёС† (SQLSTATE 42501).
 func lazyEnsureSchema(ctx context.Context) error {
 	schemaMu.Lock()
 	defer schemaMu.Unlock()
 
 	db := quizDB.Stdlib()
 	if err := db.PingContext(ctx); err != nil {
-		return fmt.Errorf("БД недоступна: %w", err)
+		return fmt.Errorf("Р‘Р” РЅРµРґРѕСЃС‚СѓРїРЅР°: %w", err)
 	}
 
 	hasQT, err := columnExistsInCurrentSchema(db, "questions", "question_type")
 	if err != nil {
-		return fmt.Errorf("проверка схемы (questions): %w", err)
+		return fmt.Errorf("РїСЂРѕРІРµСЂРєР° СЃС…РµРјС‹ (questions): %w", err)
 	}
 	if !hasQT {
 		return fmt.Errorf(
-			"в БД нет колонки questions.question_type. " +
-				"В проекте Encore добавлен файл миграции auth/migrations/2_add_question_type.up.sql (БД «quiz» объявлена в сервисе auth) — перезапустите «encore run», чтобы Encore применил её (миграции идут с правами владельца кластера). " +
-				"Либо выполните вручную под владельцем таблицы:\n\n" +
+			"РІ Р‘Р” РЅРµС‚ РєРѕР»РѕРЅРєРё questions.question_type. " +
+				"Р’ РїСЂРѕРµРєС‚Рµ Encore РґРѕР±Р°РІР»РµРЅ С„Р°Р№Р» РјРёРіСЂР°С†РёРё auth/migrations/2_add_question_type.up.sql (Р‘Р” В«quizВ» РѕР±СЉСЏРІР»РµРЅР° РІ СЃРµСЂРІРёСЃРµ auth) вЂ” РїРµСЂРµР·Р°РїСѓСЃС‚РёС‚Рµ В«encore runВ», С‡С‚РѕР±С‹ Encore РїСЂРёРјРµРЅРёР» РµС‘ (РјРёРіСЂР°С†РёРё РёРґСѓС‚ СЃ РїСЂР°РІР°РјРё РІР»Р°РґРµР»СЊС†Р° РєР»Р°СЃС‚РµСЂР°). " +
+				"Р›РёР±Рѕ РІС‹РїРѕР»РЅРёС‚Рµ РІСЂСѓС‡РЅСѓСЋ РїРѕРґ РІР»Р°РґРµР»СЊС†РµРј С‚Р°Р±Р»РёС†С‹:\n\n" +
 				"ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_type TEXT NOT NULL DEFAULT 'choice';\n\n" +
-				"Если у вас уже есть миграции с номером 2, переименуйте файл в следующий свободный номер (3_, 4_ …).")
+				"Р•СЃР»Рё Сѓ РІР°СЃ СѓР¶Рµ РµСЃС‚СЊ РјРёРіСЂР°С†РёРё СЃ РЅРѕРјРµСЂРѕРј 2, РїРµСЂРµРёРјРµРЅСѓР№С‚Рµ С„Р°Р№Р» РІ СЃР»РµРґСѓСЋС‰РёР№ СЃРІРѕР±РѕРґРЅС‹Р№ РЅРѕРјРµСЂ (3_, 4_ вЂ¦).")
 	}
 
 	patchAttemptAnswersIfPossible(db)
@@ -95,7 +96,7 @@ func init() {
 	}
 }
 
-// ===== ТИПЫ =====
+// ===== РўРРџР« =====
 
 type Answer struct {
 	ID         string `json:"id"`
@@ -207,7 +208,7 @@ type AnswerDetail struct {
 	IsCorrect     bool   `json:"is_correct"`
 }
 
-// ===== ADMIN: список всех квизов =====
+// ===== ADMIN: СЃРїРёСЃРѕРє РІСЃРµС… РєРІРёР·РѕРІ =====
 
 //encore:api auth method=GET path=/admin/quizzes
 func AdminListQuizzes(ctx context.Context) (*QuizListResponse, error) {
@@ -216,7 +217,7 @@ func AdminListQuizzes(ctx context.Context) (*QuizListResponse, error) {
 	}
 	ud := auth.Data().(*UserData)
 	if ud.Role != "admin" {
-		return nil, errors.New("доступ запрещён")
+		return nil, errors.New("РґРѕСЃС‚СѓРї Р·Р°РїСЂРµС‰С‘РЅ")
 	}
 	client := entClient
 	quizzes, err := client.Quiz.Query().WithQuestions().All(ctx)
@@ -231,7 +232,7 @@ func AdminListQuizzes(ctx context.Context) (*QuizListResponse, error) {
 	return &QuizListResponse{Quizzes: result}, nil
 }
 
-// ===== ADMIN: создать квиз =====
+// ===== ADMIN: СЃРѕР·РґР°С‚СЊ РєРІРёР· =====
 
 //encore:api auth method=POST path=/admin/quizzes
 func AdminCreateQuiz(ctx context.Context, req *CreateQuizRequest) (*QuizResponse, error) {
@@ -240,13 +241,13 @@ func AdminCreateQuiz(ctx context.Context, req *CreateQuizRequest) (*QuizResponse
 	}
 	ud := auth.Data().(*UserData)
 	if ud.Role != "admin" {
-		return nil, errors.New("доступ запрещён")
+		return nil, errors.New("РґРѕСЃС‚СѓРї Р·Р°РїСЂРµС‰С‘РЅ")
 	}
 	if req.Title == "" {
-		return nil, errors.New("название обязательно")
+		return nil, errors.New("РЅР°Р·РІР°РЅРёРµ РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ")
 	}
 	if len(req.Questions) == 0 {
-		return nil, errors.New("минимум 1 вопрос")
+		return nil, errors.New("РјРёРЅРёРјСѓРј 1 РІРѕРїСЂРѕСЃ")
 	}
 	client := entClient
 	create := client.Quiz.Create().
@@ -291,7 +292,7 @@ func AdminCreateQuiz(ctx context.Context, req *CreateQuizRequest) (*QuizResponse
 	return getQuizByID(ctx, q.ID.String(), true)
 }
 
-// ===== ADMIN: получить квиз =====
+// ===== ADMIN: РїРѕР»СѓС‡РёС‚СЊ РєРІРёР· =====
 
 //encore:api auth method=GET path=/admin/quizzes/:id
 func AdminGetQuiz(ctx context.Context, id string) (*QuizResponse, error) {
@@ -300,12 +301,12 @@ func AdminGetQuiz(ctx context.Context, id string) (*QuizResponse, error) {
 	}
 	ud := auth.Data().(*UserData)
 	if ud.Role != "admin" {
-		return nil, errors.New("доступ запрещён")
+		return nil, errors.New("РґРѕСЃС‚СѓРї Р·Р°РїСЂРµС‰С‘РЅ")
 	}
 	return getQuizByID(ctx, id, true)
 }
 
-// ===== ADMIN: обновить квиз =====
+// ===== ADMIN: РѕР±РЅРѕРІРёС‚СЊ РєРІРёР· =====
 
 //encore:api auth method=PUT path=/admin/quizzes/:id
 func AdminUpdateQuiz(ctx context.Context, id string, req *CreateQuizRequest) (*QuizResponse, error) {
@@ -314,15 +315,15 @@ func AdminUpdateQuiz(ctx context.Context, id string, req *CreateQuizRequest) (*Q
 	}
 	ud := auth.Data().(*UserData)
 	if ud.Role != "admin" {
-		return nil, errors.New("доступ запрещён")
+		return nil, errors.New("РґРѕСЃС‚СѓРї Р·Р°РїСЂРµС‰С‘РЅ")
 	}
 	if req.Title == "" {
-		return nil, errors.New("название обязательно")
+		return nil, errors.New("РЅР°Р·РІР°РЅРёРµ РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ")
 	}
 	client := entClient
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, errors.New("неверный id")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ id")
 	}
 	_, err = client.Quiz.UpdateOneID(uid).
 		SetTitle(req.Title).
@@ -343,9 +344,21 @@ func AdminUpdateQuiz(ctx context.Context, id string, req *CreateQuizRequest) (*Q
 	}
 	for _, q := range questions {
 		for _, a := range q.Edges.Answers {
+			_, err := client.AttemptAnswer.Delete().
+				Where(entattemptanswer.HasAnswerWith(entanswer.ID(a.ID))).
+				Exec(ctx)
+			if err != nil {
+				return nil, err
+			}
 			if err := client.Answer.DeleteOneID(a.ID).Exec(ctx); err != nil {
 				return nil, err
 			}
+			}
+		_, err = client.AttemptAnswer.Delete().
+			Where(entattemptanswer.HasQuestionWith(entquestion.ID(q.ID))).
+			Exec(ctx)
+		if err != nil {
+			return nil, err
 		}
 		if err := client.Question.DeleteOneID(q.ID).Exec(ctx); err != nil {
 			return nil, err
@@ -384,7 +397,7 @@ func AdminUpdateQuiz(ctx context.Context, id string, req *CreateQuizRequest) (*Q
 	return getQuizByID(ctx, id, true)
 }
 
-// ===== ADMIN: удалить квиз =====
+// ===== ADMIN: СѓРґР°Р»РёС‚СЊ РєРІРёР· =====
 
 //encore:api auth method=DELETE path=/admin/quizzes/:id
 func AdminDeleteQuiz(ctx context.Context, id string) (*MessageResponse, error) {
@@ -393,12 +406,12 @@ func AdminDeleteQuiz(ctx context.Context, id string) (*MessageResponse, error) {
 	}
 	ud := auth.Data().(*UserData)
 	if ud.Role != "admin" {
-		return nil, errors.New("доступ запрещён")
+		return nil, errors.New("РґРѕСЃС‚СѓРї Р·Р°РїСЂРµС‰С‘РЅ")
 	}
 	client := entClient
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, errors.New("неверный id")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ id")
 	}
 	questions, err := client.Question.Query().
 		Where(entquestion.HasQuizWith(entquiz.ID(uid))).
@@ -409,9 +422,21 @@ func AdminDeleteQuiz(ctx context.Context, id string) (*MessageResponse, error) {
 	}
 	for _, q := range questions {
 		for _, a := range q.Edges.Answers {
+			_, err := client.AttemptAnswer.Delete().
+				Where(entattemptanswer.HasAnswerWith(entanswer.ID(a.ID))).
+				Exec(ctx)
+			if err != nil {
+				return nil, err
+			}
 			if err := client.Answer.DeleteOneID(a.ID).Exec(ctx); err != nil {
 				return nil, err
 			}
+			}
+		_, err = client.AttemptAnswer.Delete().
+			Where(entattemptanswer.HasQuestionWith(entquestion.ID(q.ID))).
+			Exec(ctx)
+		if err != nil {
+			return nil, err
 		}
 		if err := client.Question.DeleteOneID(q.ID).Exec(ctx); err != nil {
 			return nil, err
@@ -434,10 +459,10 @@ func AdminDeleteQuiz(ctx context.Context, id string) (*MessageResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MessageResponse{Message: "квиз удалён"}, nil
+	return &MessageResponse{Message: "РєРІРёР· СѓРґР°Р»С‘РЅ"}, nil
 }
 
-// ===== ADMIN: опубликовать/скрыть =====
+// ===== ADMIN: РѕРїСѓР±Р»РёРєРѕРІР°С‚СЊ/СЃРєСЂС‹С‚СЊ =====
 
 //encore:api auth method=PATCH path=/admin/quizzes/:id/publish
 func AdminPublishQuiz(ctx context.Context, id string, req *PublishRequest) (*MessageResponse, error) {
@@ -446,12 +471,12 @@ func AdminPublishQuiz(ctx context.Context, id string, req *PublishRequest) (*Mes
 	}
 	ud := auth.Data().(*UserData)
 	if ud.Role != "admin" {
-		return nil, errors.New("доступ запрещён")
+		return nil, errors.New("РґРѕСЃС‚СѓРї Р·Р°РїСЂРµС‰С‘РЅ")
 	}
 	client := entClient
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, errors.New("неверный id")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ id")
 	}
 	_, err = client.Quiz.UpdateOneID(uid).
 		SetIsPublished(req.IsPublished).
@@ -459,10 +484,10 @@ func AdminPublishQuiz(ctx context.Context, id string, req *PublishRequest) (*Mes
 	if err != nil {
 		return nil, err
 	}
-	return &MessageResponse{Message: "статус обновлён"}, nil
+	return &MessageResponse{Message: "СЃС‚Р°С‚СѓСЃ РѕР±РЅРѕРІР»С‘РЅ"}, nil
 }
 
-// ===== USER + ADMIN: список квизов со статусами =====
+// ===== USER + ADMIN: СЃРїРёСЃРѕРє РєРІРёР·РѕРІ СЃРѕ СЃС‚Р°С‚СѓСЃР°РјРё =====
 
 //encore:api auth method=GET path=/quizzes
 func ListQuizzes(ctx context.Context) (*QuizListResponse, error) {
@@ -530,7 +555,7 @@ func buildQuizListItems(ctx context.Context, quizzes []*ent.Quiz, userUID uuid.U
 	return result, nil
 }
 
-// ===== USER + ADMIN: получить квиз (для прохождения) =====
+// ===== USER + ADMIN: РїРѕР»СѓС‡РёС‚СЊ РєРІРёР· (РґР»СЏ РїСЂРѕС…РѕР¶РґРµРЅРёСЏ) =====
 
 //encore:api auth method=GET path=/quizzes/:id
 func GetQuiz(ctx context.Context, id string) (*QuizResponse, error) {
@@ -541,18 +566,18 @@ func GetQuiz(ctx context.Context, id string) (*QuizResponse, error) {
 	client := entClient
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, errors.New("неверный id")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ id")
 	}
 	q, err := client.Quiz.Get(ctx, uid)
 	if err != nil {
-		return nil, errors.New("квиз не найден")
+		return nil, errors.New("РєРІРёР· РЅРµ РЅР°Р№РґРµРЅ")
 	}
 	if !q.IsPublished && ud.Role != "admin" {
-		return nil, errors.New("квиз недоступен")
+		return nil, errors.New("РєРІРёР· РЅРµРґРѕСЃС‚СѓРїРµРЅ")
 	}
 	userUID, err := uuid.Parse(ud.UserID)
 	if err != nil {
-		return nil, errors.New("неверный пользователь")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ")
 	}
 	if q.OneAttempt {
 		n, _ := client.Attempt.Query().
@@ -563,13 +588,13 @@ func GetQuiz(ctx context.Context, id string) (*QuizResponse, error) {
 				))
 			}).Count(ctx)
 		if n > 0 {
-			return nil, errors.New("вы уже проходили этот квиз")
+			return nil, errors.New("РІС‹ СѓР¶Рµ РїСЂРѕС…РѕРґРёР»Рё СЌС‚РѕС‚ РєРІРёР·")
 		}
 	}
 	return getQuizByID(ctx, id, false)
 }
 
-// ===== USER + ADMIN: получить результат прошлой попытки =====
+// ===== USER + ADMIN: РїРѕР»СѓС‡РёС‚СЊ СЂРµР·СѓР»СЊС‚Р°С‚ РїСЂРѕС€Р»РѕР№ РїРѕРїС‹С‚РєРё =====
 
 //encore:api auth method=GET path=/quizzes/:id/result
 func GetQuizResult(ctx context.Context, id string) (*SubmitResult, error) {
@@ -580,11 +605,11 @@ func GetQuizResult(ctx context.Context, id string) (*SubmitResult, error) {
 	client := entClient
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, errors.New("неверный id")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ id")
 	}
 	userUID, err := uuid.Parse(ud.UserID)
 	if err != nil {
-		return nil, errors.New("неверный пользователь")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ")
 	}
 	quizEnt, err := client.Quiz.Query().
 		Where(entquiz.ID(uid)).
@@ -593,10 +618,10 @@ func GetQuizResult(ctx context.Context, id string) (*SubmitResult, error) {
 		}).
 		Only(ctx)
 	if err != nil {
-		return nil, errors.New("квиз не найден")
+		return nil, errors.New("РєРІРёР· РЅРµ РЅР°Р№РґРµРЅ")
 	}
-	// Сначала только попытка: WithAttemptAnswers+WithQuestion на одном запросе давал ошибку SQL/Ent,
-	// из‑за чего любой сбой превращался в «попытка не найдена», хотя строка в attempts есть.
+	// РЎРЅР°С‡Р°Р»Р° С‚РѕР»СЊРєРѕ РїРѕРїС‹С‚РєР°: WithAttemptAnswers+WithQuestion РЅР° РѕРґРЅРѕРј Р·Р°РїСЂРѕСЃРµ РґР°РІР°Р» РѕС€РёР±РєСѓ SQL/Ent,
+	// РёР·вЂ‘Р·Р° С‡РµРіРѕ Р»СЋР±РѕР№ СЃР±РѕР№ РїСЂРµРІСЂР°С‰Р°Р»СЃСЏ РІ В«РїРѕРїС‹С‚РєР° РЅРµ РЅР°Р№РґРµРЅР°В», С…РѕС‚СЏ СЃС‚СЂРѕРєР° РІ attempts РµСЃС‚СЊ.
 	attempt, err := client.Attempt.Query().
 		Where(func(s *sql.Selector) {
 			s.Where(sql.And(
@@ -608,9 +633,9 @@ func GetQuizResult(ctx context.Context, id string) (*SubmitResult, error) {
 		First(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return nil, errors.New("попытка не найдена")
+			return nil, errors.New("РїРѕРїС‹С‚РєР° РЅРµ РЅР°Р№РґРµРЅР°")
 		}
-		return nil, fmt.Errorf("попытка: %w", err)
+		return nil, fmt.Errorf("РїРѕРїС‹С‚РєР°: %w", err)
 	}
 	percent := 0
 	if attempt.Total > 0 {
@@ -631,7 +656,7 @@ func GetQuizResult(ctx context.Context, id string) (*SubmitResult, error) {
 		Where(entattemptanswer.HasAttemptWith(entattempt.ID(attempt.ID))).
 		All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("ответы попытки: %w", err)
+		return nil, fmt.Errorf("РѕС‚РІРµС‚С‹ РїРѕРїС‹С‚РєРё: %w", err)
 	}
 
 	aaByQuestion := make(map[uuid.UUID][]*ent.AttemptAnswer)
@@ -709,14 +734,14 @@ func GetQuizResult(ctx context.Context, id string) (*SubmitResult, error) {
 				lt := ansByID[p.LeftAnswerID]
 				rt := ansByID[p.RightAnswerID]
 				if lt != "" || rt != "" {
-					parts = append(parts, lt+" → "+rt)
+					parts = append(parts, lt+" в†’ "+rt)
 				}
 			}
 			detail.YourAnswer = strings.Join(parts, "; ")
 			sortedAns := sortAnswersEnt(qEnt.Edges.Answers)
 			var wantParts []string
 			for i := 0; i+1 < len(sortedAns); i += 2 {
-				wantParts = append(wantParts, sortedAns[i].Text+" → "+sortedAns[i+1].Text)
+				wantParts = append(wantParts, sortedAns[i].Text+" в†’ "+sortedAns[i+1].Text)
 			}
 			detail.CorrectAnswer = strings.Join(wantParts, "; ")
 
@@ -760,7 +785,7 @@ func GetQuizResult(ctx context.Context, id string) (*SubmitResult, error) {
 	return out, nil
 }
 
-// ===== USER + ADMIN: отправить ответы =====
+// ===== USER + ADMIN: РѕС‚РїСЂР°РІРёС‚СЊ РѕС‚РІРµС‚С‹ =====
 
 //encore:api auth method=POST path=/quizzes/:id/submit
 func SubmitQuiz(ctx context.Context, id string, req *SubmitRequest) (*SubmitResult, error) {
@@ -771,18 +796,18 @@ func SubmitQuiz(ctx context.Context, id string, req *SubmitRequest) (*SubmitResu
 	client := entClient
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, errors.New("неверный id")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ id")
 	}
 	q, err := client.Quiz.Get(ctx, uid)
 	if err != nil {
-		return nil, errors.New("квиз не найден")
+		return nil, errors.New("РєРІРёР· РЅРµ РЅР°Р№РґРµРЅ")
 	}
 	if !q.IsPublished && ud.Role != "admin" {
-		return nil, errors.New("квиз недоступен")
+		return nil, errors.New("РєРІРёР· РЅРµРґРѕСЃС‚СѓРїРµРЅ")
 	}
 	userUID, err := uuid.Parse(ud.UserID)
 	if err != nil {
-		return nil, errors.New("неверный пользователь")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ")
 	}
 	if q.OneAttempt {
 		count, _ := client.Attempt.Query().
@@ -793,7 +818,7 @@ func SubmitQuiz(ctx context.Context, id string, req *SubmitRequest) (*SubmitResu
 				))
 			}).Count(ctx)
 		if count > 0 {
-			return nil, errors.New("вы уже проходили этот квиз")
+			return nil, errors.New("РІС‹ СѓР¶Рµ РїСЂРѕС…РѕРґРёР»Рё СЌС‚РѕС‚ РєРІРёР·")
 		}
 	}
 
@@ -890,13 +915,13 @@ func SubmitQuiz(ctx context.Context, id string, req *SubmitRequest) (*SubmitResu
 			byID := answerTextByID(qEnt.Edges.Answers)
 			var parts []string
 			for _, p := range pairs {
-				parts = append(parts, byID[p.LeftAnswerID]+" → "+byID[p.RightAnswerID])
+				parts = append(parts, byID[p.LeftAnswerID]+" в†’ "+byID[p.RightAnswerID])
 			}
 			detail.YourAnswer = strings.Join(parts, "; ")
 			sortedAns := sortAnswersEnt(qEnt.Edges.Answers)
 			var wantParts []string
 			for i := 0; i+1 < len(sortedAns); i += 2 {
-				wantParts = append(wantParts, sortedAns[i].Text+" → "+sortedAns[i+1].Text)
+				wantParts = append(wantParts, sortedAns[i].Text+" в†’ "+sortedAns[i+1].Text)
 			}
 			detail.CorrectAnswer = strings.Join(wantParts, "; ")
 
@@ -1025,10 +1050,10 @@ func SubmitQuiz(ctx context.Context, id string, req *SubmitRequest) (*SubmitResu
 	}, nil
 }
 
-// ===== ВСПОМОГАТЕЛЬНАЯ =====
+// ===== Р’РЎРџРћРњРћР“РђРўР•Р›Р¬РќРђРЇ =====
 
-// realignOrphanAttemptAnswers: после редактирования квиза в attempt_answers остаются старые question_id.
-// Если число строк с «чужим» question_id совпадает с числом текущих вопросов без привязки — сопоставляем по порядку (order_index).
+// realignOrphanAttemptAnswers: РїРѕСЃР»Рµ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ РєРІРёР·Р° РІ attempt_answers РѕСЃС‚Р°СЋС‚СЃСЏ СЃС‚Р°СЂС‹Рµ question_id.
+// Р•СЃР»Рё С‡РёСЃР»Рѕ СЃС‚СЂРѕРє СЃ В«С‡СѓР¶РёРјВ» question_id СЃРѕРІРїР°РґР°РµС‚ СЃ С‡РёСЃР»РѕРј С‚РµРєСѓС‰РёС… РІРѕРїСЂРѕСЃРѕРІ Р±РµР· РїСЂРёРІСЏР·РєРё вЂ” СЃРѕРїРѕСЃС‚Р°РІР»СЏРµРј РїРѕ РїРѕСЂСЏРґРєСѓ (order_index).
 func realignOrphanAttemptAnswers(questions []*ent.Question, aas []*ent.AttemptAnswer, aaByQuestion map[uuid.UUID][]*ent.AttemptAnswer) {
 	if len(questions) == 0 || len(aas) == 0 {
 		return
@@ -1098,7 +1123,7 @@ func getQuizByID(ctx context.Context, id string, withCorrect bool) (*QuizRespons
 	client := entClient
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, errors.New("неверный id")
+		return nil, errors.New("РЅРµРІРµСЂРЅС‹Р№ id")
 	}
 	q, err := client.Quiz.Query().
 		Where(entquiz.ID(uid)).
@@ -1107,7 +1132,7 @@ func getQuizByID(ctx context.Context, id string, withCorrect bool) (*QuizRespons
 		}).
 		Only(ctx)
 	if err != nil {
-		return nil, errors.New("квиз не найден")
+		return nil, errors.New("РєРІРёР· РЅРµ РЅР°Р№РґРµРЅ")
 	}
 	var questions []Question
 	for _, question := range q.Edges.Questions {
@@ -1141,3 +1166,7 @@ func getQuizByID(ctx context.Context, id string, withCorrect bool) (*QuizRespons
 		Questions:     questions,
 	}}, nil
 }
+
+
+
+

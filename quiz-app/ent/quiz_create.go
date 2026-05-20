@@ -100,6 +100,20 @@ func (_c *QuizCreate) SetNillableCreatedAt(v *time.Time) *QuizCreate {
 	return _c
 }
 
+// SetCreatedByID sets the "created_by_id" field.
+func (_c *QuizCreate) SetCreatedByID(v uuid.UUID) *QuizCreate {
+	_c.mutation.SetCreatedByID(v)
+	return _c
+}
+
+// SetNillableCreatedByID sets the "created_by_id" field if the given value is not nil.
+func (_c *QuizCreate) SetNillableCreatedByID(v *uuid.UUID) *QuizCreate {
+	if v != nil {
+		_c.SetCreatedByID(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *QuizCreate) SetID(v uuid.UUID) *QuizCreate {
 	_c.mutation.SetID(v)
@@ -110,20 +124,6 @@ func (_c *QuizCreate) SetID(v uuid.UUID) *QuizCreate {
 func (_c *QuizCreate) SetNillableID(v *uuid.UUID) *QuizCreate {
 	if v != nil {
 		_c.SetID(*v)
-	}
-	return _c
-}
-
-// SetCreatedByID sets the "created_by" edge to the User entity by ID.
-func (_c *QuizCreate) SetCreatedByID(id uuid.UUID) *QuizCreate {
-	_c.mutation.SetCreatedByID(id)
-	return _c
-}
-
-// SetNillableCreatedByID sets the "created_by" edge to the User entity by ID if the given value is not nil.
-func (_c *QuizCreate) SetNillableCreatedByID(id *uuid.UUID) *QuizCreate {
-	if id != nil {
-		_c = _c.SetCreatedByID(*id)
 	}
 	return _c
 }
@@ -310,7 +310,7 @@ func (_c *QuizCreate) createSpec() (*Quiz, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.user_quizzes = &nodes[0]
+		_node.CreatedByID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.QuestionsIDs(); len(nodes) > 0 {

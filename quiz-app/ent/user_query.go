@@ -458,7 +458,9 @@ func (_q *UserQuery) loadQuizzes(ctx context.Context, query *QuizQuery, nodes []
 			init(nodes[i])
 		}
 	}
-	query.withFKs = true
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(quiz.FieldCreatedByID)
+	}
 	query.Where(predicate.Quiz(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.QuizzesColumn), fks...))
 	}))
@@ -467,13 +469,10 @@ func (_q *UserQuery) loadQuizzes(ctx context.Context, query *QuizQuery, nodes []
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.user_quizzes
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "user_quizzes" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
+		fk := n.CreatedByID
+		node, ok := nodeids[fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "user_quizzes" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "created_by_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

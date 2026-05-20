@@ -30,7 +30,6 @@ type QuizQuery struct {
 	withCreatedBy *UserQuery
 	withQuestions *QuestionQuery
 	withAttempts  *AttemptQuery
-	withFKs       bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -444,7 +443,6 @@ func (_q *QuizQuery) prepareQuery(ctx context.Context) error {
 func (_q *QuizQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Quiz, error) {
 	var (
 		nodes       = []*Quiz{}
-		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
 		loadedTypes = [3]bool{
 			_q.withCreatedBy != nil,
@@ -452,12 +450,6 @@ func (_q *QuizQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Quiz, e
 			_q.withAttempts != nil,
 		}
 	)
-	if _q.withCreatedBy != nil {
-		withFKs = true
-	}
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, quiz.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Quiz).scanValues(nil, columns)
 	}
@@ -503,10 +495,7 @@ func (_q *QuizQuery) loadCreatedBy(ctx context.Context, query *UserQuery, nodes 
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*Quiz)
 	for i := range nodes {
-		if nodes[i].user_quizzes == nil {
-			continue
-		}
-		fk := *nodes[i].user_quizzes
+		fk := nodes[i].CreatedByID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -523,7 +512,7 @@ func (_q *QuizQuery) loadCreatedBy(ctx context.Context, query *UserQuery, nodes 
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "user_quizzes" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "created_by_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -616,6 +605,9 @@ func (_q *QuizQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != quiz.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withCreatedBy != nil {
+			_spec.Node.AddColumnOnce(quiz.FieldCreatedByID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

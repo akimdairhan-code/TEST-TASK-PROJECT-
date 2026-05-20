@@ -125,7 +125,7 @@ var (
 		{Name: "one_attempt", Type: field.TypeBool, Default: false},
 		{Name: "show_answers", Type: field.TypeBool, Default: false},
 		{Name: "created_at", Type: field.TypeTime, Nullable: true},
-		{Name: "user_quizzes", Type: field.TypeUUID, Nullable: true},
+		{Name: "created_by_id", Type: field.TypeUUID, Nullable: true},
 	}
 	// QuizzesTable holds the schema information for the "quizzes" table.
 	QuizzesTable = &schema.Table{

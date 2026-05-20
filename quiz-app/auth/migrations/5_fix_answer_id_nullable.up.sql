@@ -1,0 +1,1 @@
+ALTER TABLE attempt_answers ALTER COLUMN answer_id DROP NOT NULL;
