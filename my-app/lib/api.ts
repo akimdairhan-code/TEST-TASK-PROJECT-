@@ -1,15 +1,7 @@
-import axios from "axios";
+import Client, { Local } from "./client";
 
-const BASE_URL = "http://127.0.0.1:4000";
-
-const api = axios.create({ baseURL: BASE_URL });
-
-api.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("token");
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+const client = new Client(Local, {
+  auth: () => (typeof window !== "undefined" ? localStorage.getItem("token") : null),
 });
 
 export type MatchPair = { left_answer_id: string; right_answer_id: string };
@@ -23,23 +15,23 @@ export type SubmitAnswerPayload = {
 
 // ===== AUTH =====
 export const register = (email: string, password: string, role: string) =>
-  api.post("/auth/register", { email, password, role });
+  client.auth.Register({ email, password, role });
 
 export const login = (email: string, password: string) =>
-  api.post("/auth/login", { email, password });
+  client.auth.Login({ email, password });
 
 // ===== ADMIN =====
-export const adminGetQuizzes = () => api.get("/admin/quizzes");
-export const adminGetQuiz = (id: string) => api.get(`/admin/quizzes/${id}`);
-export const adminCreateQuiz = (data: unknown) => api.post("/admin/quizzes", data);
-export const adminUpdateQuiz = (id: string, data: unknown) => api.put(`/admin/quizzes/${id}`, data);
-export const adminDeleteQuiz = (id: string) => api.delete(`/admin/quizzes/${id}`);
+export const adminGetQuizzes = () => client.quiz.AdminListQuizzes();
+export const adminGetQuiz = (id: string) => client.quiz.AdminGetQuiz(id);
+export const adminCreateQuiz = (data: unknown) => client.quiz.AdminCreateQuiz(data as any);
+export const adminUpdateQuiz = (id: string, data: unknown) => client.quiz.AdminUpdateQuiz(id, data as any);
+export const adminDeleteQuiz = (id: string) => client.quiz.AdminDeleteQuiz(id);
 export const adminPublishQuiz = (id: string, isPublished: boolean) =>
-  api.patch(`/admin/quizzes/${id}/publish`, { is_published: isPublished });
+  client.quiz.AdminPublishQuiz(id, { is_published: isPublished });
 
 // ===== USER =====
-export const getQuizzes = () => api.get("/quizzes");
-export const getQuiz = (id: string) => api.get(`/quizzes/${id}`);
-export const getQuizResult = (id: string) => api.get(`/quizzes/${id}/result`);
+export const getQuizzes = () => client.quiz.ListQuizzes();
+export const getQuiz = (id: string) => client.quiz.GetQuiz(id);
+export const getQuizResult = (id: string) => client.quiz.GetQuizResult(id);
 export const submitQuiz = (id: string, answers: SubmitAnswerPayload[]) =>
-  api.post(`/quizzes/${id}/submit`, { answers });
+  client.quiz.SubmitQuiz(id, { answers });
