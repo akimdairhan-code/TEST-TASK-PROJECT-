@@ -1,6 +1,6 @@
-import Client, { Local } from "./client";
+import Client, { Environment } from "./client";
 
-const client = new Client(Local, {
+const client = new Client(Environment("staging"), {
   auth: () => (typeof window !== "undefined" ? localStorage.getItem("token") : null),
 });
 
